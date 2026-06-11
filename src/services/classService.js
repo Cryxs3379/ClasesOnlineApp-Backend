@@ -11,6 +11,12 @@ function validateClassTimes(startTime, endTime) {
     throw new AppError('Las fechas de inicio y fin no son válidas', 400);
   }
 
+  const now = new Date();
+
+  if (start < now) {
+    throw new AppError('No puedes reservar una clase en el pasado', 400);
+  }
+
   if (end <= start) {
     throw new AppError('La hora de fin debe ser posterior a la hora de inicio', 400);
   }

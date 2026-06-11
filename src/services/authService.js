@@ -5,7 +5,7 @@ const AppError = require('../utils/AppError');
 
 const SALT_ROUNDS = 10;
 const JWT_EXPIRES_IN = '7d';
-const VALID_ROLES = ['student', 'teacher', 'admin'];
+const PUBLIC_REGISTER_ROLES = ['student', 'teacher'];
 
 function generateToken(user) {
   return jwt.sign(
@@ -16,8 +16,8 @@ function generateToken(user) {
 }
 
 async function register({ name, email, password, role }) {
-  if (!VALID_ROLES.includes(role)) {
-    throw new AppError('El rol debe ser student, teacher o admin', 400);
+  if (!PUBLIC_REGISTER_ROLES.includes(role)) {
+    throw new AppError('El rol debe ser student o teacher', 400);
   }
 
   const existingUser = await userRepository.findByEmail(email);

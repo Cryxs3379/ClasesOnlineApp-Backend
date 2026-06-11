@@ -27,8 +27,8 @@ const registerValidation = [
   body('role')
     .notEmpty()
     .withMessage('El rol es obligatorio')
-    .isIn(['student', 'teacher', 'admin'])
-    .withMessage('El rol debe ser student, teacher o admin'),
+    .isIn(['student', 'teacher'])
+    .withMessage('El rol debe ser student o teacher'),
 ];
 
 const loginValidation = [
