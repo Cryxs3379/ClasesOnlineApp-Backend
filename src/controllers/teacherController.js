@@ -1,0 +1,67 @@
+const { validationResult } = require('express-validator');
+const teacherService = require('../services/teacherService');
+const AppError = require('../utils/AppError');
+
+function handleValidationErrors(req) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const message = errors
+      .array()
+      .map((err) => err.msg)
+      .join('. ');
+    throw new AppError(message, 400);
+  }
+}
+
+async function createOrUpdateProfile(req, res, next) {
+  try {
+    handleValidationErrors(req);
+    const { bio, hourly_price, subject } = req.body;
+
+    const profile = await teacherService.createOrUpdateProfile(req.user.id, {
+      bio,
+      hourlyPrice: hourly_price,
+      subject,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Perfil de profesor guardado correctamente',
+      data: { profile },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getAllTeachers(req, res, next) {
+  try {
+    const teachers = await teacherService.getAllTeachers();
+
+    res.status(200).json({
+      success: true,
+      data: { teachers },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getTeacherById(req, res, next) {
+  try {
+    const teacher = await teacherService.getTeacherById(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      data: { teacher },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = {
+  createOrUpdateProfile,
+  getAllTeachers,
+  getTeacherById,
+};
