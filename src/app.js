@@ -3,6 +3,7 @@ const cors = require('cors');
 
 const getCorsOptions = require('./config/cors');
 const authRoutes = require('./routes/authRoutes');
+const studentRoutes = require('./routes/studentRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const classRoutes = require('./routes/classRoutes');
 const healthRoutes = require('./routes/healthRoutes');
@@ -22,6 +23,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/students', studentRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/classes', classRoutes);
 

@@ -1,12 +1,16 @@
 const pool = require('../config/db');
 
-async function findByUserId(userId) {
+const PROFILE_FIELDS = `
+  id, teacher_id, bio, subject, hourly_rate, avatar_url, created_at, updated_at
+`;
+
+async function findByTeacherId(teacherId) {
   const query = `
-    SELECT id, user_id, bio, hourly_price, subject, created_at
+    SELECT ${PROFILE_FIELDS}
     FROM teacher_profiles
-    WHERE user_id = $1
+    WHERE teacher_id = $1
   `;
-  const { rows } = await pool.query(query, [userId]);
+  const { rows } = await pool.query(query, [teacherId]);
   return rows[0] || null;
 }
 
@@ -14,15 +18,17 @@ async function findById(id) {
   const query = `
     SELECT
       tp.id,
-      tp.user_id,
+      tp.teacher_id,
       tp.bio,
-      tp.hourly_price,
       tp.subject,
+      tp.hourly_rate,
+      tp.avatar_url,
       tp.created_at,
+      tp.updated_at,
       u.name,
       u.email
     FROM teacher_profiles tp
-    INNER JOIN users u ON u.id = tp.user_id
+    INNER JOIN users u ON u.id = tp.teacher_id
     WHERE tp.id = $1
   `;
   const { rows } = await pool.query(query, [id]);
@@ -33,45 +39,63 @@ async function findAll() {
   const query = `
     SELECT
       tp.id,
-      tp.user_id,
+      tp.teacher_id,
       tp.bio,
-      tp.hourly_price,
       tp.subject,
+      tp.hourly_rate,
+      tp.avatar_url,
       tp.created_at,
+      tp.updated_at,
       u.name,
       u.email
     FROM teacher_profiles tp
-    INNER JOIN users u ON u.id = tp.user_id
+    INNER JOIN users u ON u.id = tp.teacher_id
     ORDER BY tp.created_at DESC
   `;
   const { rows } = await pool.query(query);
   return rows;
 }
 
-async function create({ userId, bio, hourlyPrice, subject }) {
+async function create({ teacherId, bio, hourlyRate, subject, avatarUrl }) {
   const query = `
-    INSERT INTO teacher_profiles (user_id, bio, hourly_price, subject)
-    VALUES ($1, $2, $3, $4)
-    RETURNING id, user_id, bio, hourly_price, subject, created_at
+    INSERT INTO teacher_profiles (teacher_id, bio, hourly_rate, subject, avatar_url)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING ${PROFILE_FIELDS}
   `;
-  const { rows } = await pool.query(query, [userId, bio, hourlyPrice, subject]);
+  const { rows } = await pool.query(query, [
+    teacherId,
+    bio,
+    hourlyRate,
+    subject,
+    avatarUrl || null,
+  ]);
   return rows[0];
 }
 
-async function update({ userId, bio, hourlyPrice, subject }) {
+async function update({ teacherId, bio, hourlyRate, subject, avatarUrl }) {
   const query = `
     UPDATE teacher_profiles
-    SET bio = $2, hourly_price = $3, subject = $4
-    WHERE user_id = $1
-    RETURNING id, user_id, bio, hourly_price, subject, created_at
+    SET bio = $2,
+        hourly_rate = $3,
+        subject = $4,
+        avatar_url = $5,
+        updated_at = NOW()
+    WHERE teacher_id = $1
+    RETURNING ${PROFILE_FIELDS}
   `;
-  const { rows } = await pool.query(query, [userId, bio, hourlyPrice, subject]);
+  const { rows } = await pool.query(query, [
+    teacherId,
+    bio,
+    hourlyRate,
+    subject,
+    avatarUrl || null,
+  ]);
   return rows[0] || null;
 }
 
 async function findUserById(id) {
   const query = `
-    SELECT id, name, email, role
+    SELECT id, name, email, role, teacher_id, is_active
     FROM users
     WHERE id = $1
   `;
@@ -80,7 +104,7 @@ async function findUserById(id) {
 }
 
 module.exports = {
-  findByUserId,
+  findByTeacherId,
   findById,
   findAll,
   create,

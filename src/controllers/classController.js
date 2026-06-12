@@ -16,17 +16,19 @@ function handleValidationErrors(req) {
 async function createClass(req, res, next) {
   try {
     handleValidationErrors(req);
-    const { teacher_id, start_time, end_time } = req.body;
+    const { student_id, title, description, start_time, end_time } = req.body;
 
     const newClass = await classService.createClass(req.user.id, {
-      teacherId: teacher_id,
+      studentId: student_id,
+      title,
+      description,
       startTime: start_time,
       endTime: end_time,
     });
 
     res.status(201).json({
       success: true,
-      message: 'Clase reservada correctamente',
+      message: 'Clase creada correctamente',
       data: { class: newClass },
     });
   } catch (error) {
@@ -60,8 +62,30 @@ async function getClassById(req, res, next) {
   }
 }
 
+async function updateClassStatus(req, res, next) {
+  try {
+    handleValidationErrors(req);
+    const { status } = req.body;
+
+    const updatedClass = await classService.updateClassStatus(
+      req.user.id,
+      req.params.id,
+      status
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Estado de la clase actualizado correctamente',
+      data: { class: updatedClass },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createClass,
   getMyClasses,
   getClassById,
+  updateClassStatus,
 };

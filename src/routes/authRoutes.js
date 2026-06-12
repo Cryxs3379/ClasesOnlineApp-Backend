@@ -10,8 +10,8 @@ const registerValidation = [
     .trim()
     .notEmpty()
     .withMessage('El nombre es obligatorio')
-    .isLength({ min: 2, max: 100 })
-    .withMessage('El nombre debe tener entre 2 y 100 caracteres'),
+    .isLength({ min: 2, max: 120 })
+    .withMessage('El nombre debe tener entre 2 y 120 caracteres'),
   body('email')
     .trim()
     .notEmpty()
@@ -27,8 +27,8 @@ const registerValidation = [
   body('role')
     .notEmpty()
     .withMessage('El rol es obligatorio')
-    .isIn(['student', 'teacher'])
-    .withMessage('El rol debe ser student o teacher'),
+    .isIn(['teacher', 'admin'])
+    .withMessage('El rol debe ser teacher o admin'),
 ];
 
 const loginValidation = [

@@ -16,12 +16,14 @@ function handleValidationErrors(req) {
 async function createOrUpdateProfile(req, res, next) {
   try {
     handleValidationErrors(req);
-    const { bio, hourly_price, subject } = req.body;
+    const { bio, subject, avatar_url } = req.body;
+    const hourly_rate = req.body.hourly_rate ?? req.body.hourly_price;
 
     const profile = await teacherService.createOrUpdateProfile(req.user.id, {
       bio,
-      hourlyPrice: hourly_price,
+      hourlyRate: hourly_rate,
       subject,
+      avatarUrl: avatar_url,
     });
 
     res.status(200).json({

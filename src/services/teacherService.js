@@ -1,24 +1,26 @@
 const teacherRepository = require('../repositories/teacherRepository');
 const AppError = require('../utils/AppError');
 
-async function createOrUpdateProfile(userId, { bio, hourlyPrice, subject }) {
-  const existingProfile = await teacherRepository.findByUserId(userId);
+async function createOrUpdateProfile(teacherId, { bio, hourlyRate, subject, avatarUrl }) {
+  const existingProfile = await teacherRepository.findByTeacherId(teacherId);
 
   if (existingProfile) {
     const updatedProfile = await teacherRepository.update({
-      userId,
+      teacherId,
       bio,
-      hourlyPrice,
+      hourlyRate,
       subject,
+      avatarUrl,
     });
     return updatedProfile;
   }
 
   const newProfile = await teacherRepository.create({
-    userId,
+    teacherId,
     bio,
-    hourlyPrice,
+    hourlyRate,
     subject,
+    avatarUrl,
   });
   return newProfile;
 }
@@ -42,6 +44,9 @@ async function validateTeacherExists(teacherId) {
   }
   if (teacher.role !== 'teacher') {
     throw new AppError('El usuario indicado no es un profesor', 400);
+  }
+  if (!teacher.is_active) {
+    throw new AppError('El profesor no está activo', 400);
   }
   return teacher;
 }
