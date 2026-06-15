@@ -1,5 +1,10 @@
 function getCorsOptions() {
-  const allowedOrigins = [process.env.FRONTEND_URL].filter(Boolean);
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.FRONTEND_URL_WWW,
+    process.env.FRONTEND_URL_2,
+    process.env.FRONTEND_URL_2_WWW,
+  ].filter(Boolean);
 
   if (process.env.NODE_ENV !== 'production') {
     allowedOrigins.push(
