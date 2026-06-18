@@ -3,6 +3,7 @@ const { Server } = require('socket.io');
 const getCorsOptions = require('../config/cors');
 const conversationService = require('../services/conversationService');
 const conversationRepository = require('../repositories/conversationRepository');
+const notificationService = require('../services/notificationService');
 
 let io;
 
@@ -129,6 +130,11 @@ function initializeSocket(server) {
           result.teacherConversation,
           result.studentConversation
         );
+
+        await notificationService.notifyNewMessage(io, {
+          conversation: result.conversation,
+          message: result.message,
+        });
       } catch (error) {
         socket.emit('message:error', { message: error.message });
       }
@@ -167,6 +173,10 @@ function initializeSocket(server) {
 function getIO() {
   return io;
 }
+
+// Eventos de notificaciones emitidos desde notificationService:
+// - notification:new       → { notification }
+// - notifications:updated  → { unread_count }
 
 module.exports = {
   initializeSocket,

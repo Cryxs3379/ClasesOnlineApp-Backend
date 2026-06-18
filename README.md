@@ -46,6 +46,11 @@ Routes → Controllers → Services → Repositories → PostgreSQL
 | GET | `/api/conversations/:id/messages` | teacher/student/admin | Historial de mensajes |
 | POST | `/api/conversations/:id/messages` | teacher/student | Enviar mensaje |
 | PATCH | `/api/conversations/:id/read` | teacher/student/admin | Marcar como leída |
+| GET | `/api/notifications` | teacher/student/admin | Listar notificaciones |
+| GET | `/api/notifications/unread-count` | teacher/student/admin | Contador de no leídas |
+| PATCH | `/api/notifications/:id/read` | teacher/student/admin | Marcar notificación como leída |
+| PATCH | `/api/notifications/read-all` | teacher/student/admin | Marcar todas como leídas |
+| DELETE | `/api/notifications/:id` | teacher/student/admin | Eliminar notificación |
 
 ## Socket.IO — Mensajería en tiempo real
 
@@ -79,6 +84,38 @@ const socket = io('http://localhost:3001', {
 | `message:new` | `{ message }` | Nuevo mensaje en la conversación |
 | `conversation:updated` | `{ conversation }` | Conversación actualizada (último mensaje, no leídos) |
 | `message:error` | `{ message }` | Error de validación o permisos |
+| `notification:new` | `{ notification }` | Nueva notificación para el usuario |
+| `notifications:updated` | `{ unread_count }` | Contador actualizado de no leídas |
+
+### Eventos de notificaciones (servidor → cliente)
+
+```js
+socket.on('notification:new', ({ notification }) => {
+  console.log('Nueva notificación:', notification);
+});
+
+socket.on('notifications:updated', ({ unread_count }) => {
+  console.log('No leídas:', unread_count);
+});
+```
+
+Ejemplo de payload `notification:new`:
+
+```json
+{
+  "notification": {
+    "id": "uuid",
+    "user_id": "uuid",
+    "title": "Nuevo mensaje",
+    "message": "Nuevo mensaje de Ana Profesora",
+    "type": "message",
+    "related_entity_type": "conversation",
+    "related_entity_id": "uuid",
+    "is_read": false,
+    "created_at": "2026-06-11T..."
+  }
+}
+```
 
 ### Ejemplo frontend
 
@@ -254,6 +291,41 @@ curl.exe -X PATCH http://localhost:3001/api/conversations/UUID_CONVERSACION/read
   -H "Authorization: Bearer TU_TOKEN"
 ```
 
+### 19. Listar notificaciones
+
+```bash
+curl.exe -X GET http://localhost:3001/api/notifications ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
+### 20. Contador de notificaciones no leídas
+
+```bash
+curl.exe -X GET http://localhost:3001/api/notifications/unread-count ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
+### 21. Marcar notificación como leída
+
+```bash
+curl.exe -X PATCH http://localhost:3001/api/notifications/UUID_NOTIFICACION/read ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
+### 22. Marcar todas las notificaciones como leídas
+
+```bash
+curl.exe -X PATCH http://localhost:3001/api/notifications/read-all ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
+### 23. Eliminar notificación
+
+```bash
+curl.exe -X DELETE http://localhost:3001/api/notifications/UUID_NOTIFICACION ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
 ## Reglas de negocio
 
 - Los alumnos **no** se registran solos; los crea el profesor.
@@ -267,3 +339,6 @@ curl.exe -X PATCH http://localhost:3001/api/conversations/UUID_CONVERSACION/read
 - Los alumnos no pueden subir ni borrar documentos.
 - La mensajería usa REST para historial y Socket.IO para tiempo real.
 - Los administradores pueden leer conversaciones y mensajes, pero no enviar mensajes.
+- Las notificaciones se guardan en PostgreSQL y se emiten en tiempo real por Socket.IO.
+- Se generan automáticamente al recibir mensajes, subir documentos, crear clases o cancelar clases.
+- Cada usuario solo puede ver y gestionar sus propias notificaciones.

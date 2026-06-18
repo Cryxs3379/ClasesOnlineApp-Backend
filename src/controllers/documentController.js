@@ -1,6 +1,8 @@
 const { validationResult } = require('express-validator');
 const documentService = require('../services/documentService');
+const notificationService = require('../services/notificationService');
 const { deleteFileIfExists } = require('../utils/fileUtils');
+const { getIO } = require('../socket/socket');
 const AppError = require('../utils/AppError');
 
 function handleValidationErrors(req) {
@@ -27,6 +29,9 @@ async function uploadDocument(req, res, next) {
       classId: class_id,
       file: req.file,
     });
+
+    const io = getIO();
+    await notificationService.notifyNewDocument(io, document, req.user.id);
 
     res.status(201).json({
       success: true,

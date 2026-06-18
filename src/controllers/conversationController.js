@@ -1,5 +1,6 @@
 const { validationResult } = require('express-validator');
 const conversationService = require('../services/conversationService');
+const notificationService = require('../services/notificationService');
 const { getIO } = require('../socket/socket');
 const AppError = require('../utils/AppError');
 
@@ -75,6 +76,10 @@ async function sendMessage(req, res, next) {
         message: result.message,
       });
       emitConversationUpdates(io, result.teacherConversation, result.studentConversation);
+      await notificationService.notifyNewMessage(io, {
+        conversation: result.conversation,
+        message: result.message,
+      });
     }
 
     res.status(201).json({

@@ -1,5 +1,7 @@
 const { validationResult } = require('express-validator');
 const classService = require('../services/classService');
+const notificationService = require('../services/notificationService');
+const { getIO } = require('../socket/socket');
 const AppError = require('../utils/AppError');
 
 function handleValidationErrors(req) {
@@ -25,6 +27,9 @@ async function createClass(req, res, next) {
       startTime: start_time,
       endTime: end_time,
     });
+
+    const io = getIO();
+    await notificationService.notifyNewClass(io, newClass);
 
     res.status(201).json({
       success: true,
@@ -72,6 +77,11 @@ async function updateClassStatus(req, res, next) {
       req.params.id,
       status
     );
+
+    const io = getIO();
+    if (status === 'cancelled') {
+      await notificationService.notifyClassCancelled(io, updatedClass);
+    }
 
     res.status(200).json({
       success: true,
