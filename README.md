@@ -37,6 +37,11 @@ Routes → Controllers → Services → Repositories → PostgreSQL
 | GET | `/api/classes/:id` | Autenticado | Detalle de clase |
 | PATCH | `/api/classes/:id/status` | teacher | Cambiar estado de clase |
 | GET | `/api/health/db` | Público | Comprobar conexión PostgreSQL |
+| POST | `/api/documents` | teacher/admin | Subir documento |
+| GET | `/api/documents` | teacher/student/admin | Listar documentos accesibles |
+| GET | `/api/documents/class/:classId` | teacher/student/admin | Documentos de una clase |
+| GET | `/api/documents/:id/download` | teacher/student/admin | Descargar documento |
+| DELETE | `/api/documents/:id` | teacher/admin | Eliminar documento |
 
 ## Pruebas con curl
 
@@ -118,6 +123,48 @@ curl.exe -X GET http://localhost:3001/api/auth/me \
 curl.exe -X GET http://localhost:3001/api/health/db
 ```
 
+### 10. Subir documento (profesor)
+
+```bash
+curl.exe -X POST http://localhost:3001/api/documents ^
+  -H "Authorization: Bearer TU_TOKEN_PROFESOR" ^
+  -F "title=Material clase 1" ^
+  -F "description=PDF de vocabulario" ^
+  -F "student_id=UUID_DEL_ALUMNO" ^
+  -F "file=@C:\ruta\archivo.pdf"
+```
+
+También puedes asignar por clase con `class_id=UUID_DE_LA_CLASE` en lugar de `student_id`, o enviar ambos.
+
+### 11. Listar documentos
+
+```bash
+curl.exe -X GET http://localhost:3001/api/documents ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
+### 12. Listar documentos de una clase
+
+```bash
+curl.exe -X GET http://localhost:3001/api/documents/class/UUID_DE_LA_CLASE ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
+### 13. Descargar documento
+
+```bash
+curl.exe -L -X GET http://localhost:3001/api/documents/UUID_DOCUMENTO/download ^
+  -H "Authorization: Bearer TU_TOKEN" ^
+  -o documento.pdf
+```
+
+### 14. Eliminar documento (profesor o admin)
+
+```bash
+curl.exe -X DELETE http://localhost:3001/api/documents/UUID_DOCUMENTO ^
+  -H "Authorization: Bearer TU_TOKEN_PROFESOR"
+```
+
 ## Reglas de negocio
 
 - Los alumnos **no** se registran solos; los crea el profesor.
@@ -126,3 +173,6 @@ curl.exe -X GET http://localhost:3001/api/health/db
 - Al crear un alumno se crea automáticamente una conversación profesor-alumno.
 - Cada clase genera un `jitsi_room_name` único.
 - Los usuarios inactivos (`is_active = false`) no pueden hacer login.
+- Los documentos se guardan en `uploads/documents` dentro del backend.
+- La descarga siempre pasa por `/api/documents/:id/download` con comprobación de permisos.
+- Los alumnos no pueden subir ni borrar documentos.
