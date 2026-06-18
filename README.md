@@ -42,6 +42,65 @@ Routes → Controllers → Services → Repositories → PostgreSQL
 | GET | `/api/documents/class/:classId` | teacher/student/admin | Documentos de una clase |
 | GET | `/api/documents/:id/download` | teacher/student/admin | Descargar documento |
 | DELETE | `/api/documents/:id` | teacher/admin | Eliminar documento |
+| GET | `/api/conversations` | teacher/student/admin | Listar conversaciones |
+| GET | `/api/conversations/:id/messages` | teacher/student/admin | Historial de mensajes |
+| POST | `/api/conversations/:id/messages` | teacher/student | Enviar mensaje |
+| PATCH | `/api/conversations/:id/read` | teacher/student/admin | Marcar como leída |
+
+## Socket.IO — Mensajería en tiempo real
+
+El servidor HTTP también expone Socket.IO en el mismo puerto (`PORT`).
+
+### Conexión desde el frontend
+
+```js
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:3001', {
+  auth: {
+    token: 'TU_JWT',
+  },
+});
+```
+
+### Eventos cliente → servidor
+
+| Evento | Payload | Descripción |
+|--------|---------|-------------|
+| `conversation:join` | `{ conversationId }` | Unirse a sala de conversación (con permisos) |
+| `conversation:leave` | `{ conversationId }` | Salir de sala de conversación |
+| `message:send` | `{ conversationId, content }` | Enviar mensaje en tiempo real |
+| `conversation:read` | `{ conversationId }` | Marcar mensajes como leídos |
+
+### Eventos servidor → cliente
+
+| Evento | Payload | Descripción |
+|--------|---------|-------------|
+| `message:new` | `{ message }` | Nuevo mensaje en la conversación |
+| `conversation:updated` | `{ conversation }` | Conversación actualizada (último mensaje, no leídos) |
+| `message:error` | `{ message }` | Error de validación o permisos |
+
+### Ejemplo frontend
+
+```js
+socket.on('message:new', ({ message }) => {
+  console.log('Nuevo mensaje:', message);
+});
+
+socket.on('conversation:updated', ({ conversation }) => {
+  console.log('Conversación actualizada:', conversation);
+});
+
+socket.emit('message:send', {
+  conversationId: 'UUID_CONVERSACION',
+  content: 'Hola',
+});
+```
+
+Al conectar, el servidor une automáticamente al usuario a:
+
+- `user:{userId}`
+- `conversation:{conversationId}` de sus conversaciones
 
 ## Pruebas con curl
 
@@ -165,6 +224,36 @@ curl.exe -X DELETE http://localhost:3001/api/documents/UUID_DOCUMENTO ^
   -H "Authorization: Bearer TU_TOKEN_PROFESOR"
 ```
 
+### 15. Listar conversaciones
+
+```bash
+curl.exe -X GET http://localhost:3001/api/conversations ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
+### 16. Ver mensajes de una conversación
+
+```bash
+curl.exe -X GET http://localhost:3001/api/conversations/UUID_CONVERSACION/messages ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
+### 17. Enviar mensaje (REST)
+
+```bash
+curl.exe -X POST http://localhost:3001/api/conversations/UUID_CONVERSACION/messages ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer TU_TOKEN" ^
+  -d "{\"content\":\"Hola, ¿cómo estás?\"}"
+```
+
+### 18. Marcar conversación como leída
+
+```bash
+curl.exe -X PATCH http://localhost:3001/api/conversations/UUID_CONVERSACION/read ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
 ## Reglas de negocio
 
 - Los alumnos **no** se registran solos; los crea el profesor.
@@ -176,3 +265,5 @@ curl.exe -X DELETE http://localhost:3001/api/documents/UUID_DOCUMENTO ^
 - Los documentos se guardan en `uploads/documents` dentro del backend.
 - La descarga siempre pasa por `/api/documents/:id/download` con comprobación de permisos.
 - Los alumnos no pueden subir ni borrar documentos.
+- La mensajería usa REST para historial y Socket.IO para tiempo real.
+- Los administradores pueden leer conversaciones y mensajes, pero no enviar mensajes.

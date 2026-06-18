@@ -1,4 +1,4 @@
-function getCorsOptions() {
+function getAllowedOrigins() {
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     process.env.FRONTEND_URL_WWW,
@@ -14,6 +14,12 @@ function getCorsOptions() {
     );
   }
 
+  return allowedOrigins;
+}
+
+function getCorsOptions() {
+  const allowedOrigins = getAllowedOrigins();
+
   return {
     origin(origin, callback) {
       // Permite peticiones sin origin (curl, Postman, apps móviles)
@@ -28,3 +34,4 @@ function getCorsOptions() {
 }
 
 module.exports = getCorsOptions;
+module.exports.getAllowedOrigins = getAllowedOrigins;
