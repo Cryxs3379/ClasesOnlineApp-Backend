@@ -27,6 +27,7 @@ async function createAssignment(req, res, next) {
       studentId: student_id,
       classId: class_id,
       dueDate: due_date,
+      file: req.file,
     });
 
     const io = getIO();
@@ -38,6 +39,9 @@ async function createAssignment(req, res, next) {
       data: { assignment },
     });
   } catch (error) {
+    if (req.file) {
+      deleteFileIfExists(req.file.path);
+    }
     next(error);
   }
 }
@@ -78,6 +82,7 @@ async function updateAssignment(req, res, next) {
       description,
       dueDate: due_date,
       status,
+      file: req.file,
     });
 
     res.status(200).json({
@@ -86,6 +91,9 @@ async function updateAssignment(req, res, next) {
       data: { assignment },
     });
   } catch (error) {
+    if (req.file) {
+      deleteFileIfExists(req.file.path);
+    }
     next(error);
   }
 }
@@ -167,6 +175,24 @@ async function downloadSubmissionFile(req, res, next) {
   }
 }
 
+async function downloadAttachmentFile(req, res, next) {
+  try {
+    const assignment = await assignmentService.getAttachmentFile(req.params.id, req.user);
+
+    res.download(
+      assignment.attachment_file_path,
+      assignment.attachment_original_filename,
+      (error) => {
+        if (error) {
+          next(error);
+        }
+      }
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createAssignment,
   getAssignments,
@@ -176,4 +202,5 @@ module.exports = {
   reviewAssignment,
   deleteAssignment,
   downloadSubmissionFile,
+  downloadAttachmentFile,
 };

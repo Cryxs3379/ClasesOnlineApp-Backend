@@ -15,6 +15,8 @@ const ASSIGNMENT_FIELDS = `
   a.submission_text,
   a.submission_file_path,
   a.submission_original_filename,
+  a.attachment_file_path,
+  a.attachment_original_filename,
   a.submitted_at,
   a.reviewed_at,
   a.teacher_feedback,
@@ -49,17 +51,16 @@ async function create({
   title,
   description,
   dueDate,
+  attachmentFilePath,
+  attachmentOriginalFilename,
 }) {
   const query = `
     INSERT INTO assignments (
-      teacher_id, student_id, class_id, title, description, due_date, status
+      teacher_id, student_id, class_id, title, description, due_date, status,
+      attachment_file_path, attachment_original_filename
     )
-    VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-    RETURNING
-      id, teacher_id, student_id, class_id, title, description,
-      due_date, status, submission_text, submission_file_path,
-      submission_original_filename, submitted_at, reviewed_at,
-      teacher_feedback, created_at, updated_at
+    VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)
+    RETURNING id
   `;
   const { rows } = await pool.query(query, [
     teacherId,
@@ -68,6 +69,8 @@ async function create({
     title,
     description || null,
     dueDate || null,
+    attachmentFilePath || null,
+    attachmentOriginalFilename || null,
   ]);
   return findById(rows[0].id);
 }
@@ -127,7 +130,14 @@ async function findByUser(user) {
   return [];
 }
 
-async function update(id, { title, description, dueDate, status }) {
+async function update(id, {
+  title,
+  description,
+  dueDate,
+  status,
+  attachmentFilePath,
+  attachmentOriginalFilename,
+}) {
   const query = `
     UPDATE assignments
     SET
@@ -135,6 +145,8 @@ async function update(id, { title, description, dueDate, status }) {
       description = COALESCE($3, description),
       due_date = COALESCE($4, due_date),
       status = COALESCE($5, status),
+      attachment_file_path = COALESCE($6, attachment_file_path),
+      attachment_original_filename = COALESCE($7, attachment_original_filename),
       updated_at = NOW()
     WHERE id = $1
     RETURNING id
@@ -145,6 +157,8 @@ async function update(id, { title, description, dueDate, status }) {
     description,
     dueDate,
     status,
+    attachmentFilePath,
+    attachmentOriginalFilename,
   ]);
   return rows[0] ? findById(rows[0].id) : null;
 }
@@ -190,7 +204,7 @@ async function deleteById(id) {
   const query = `
     DELETE FROM assignments
     WHERE id = $1
-    RETURNING id, submission_file_path
+    RETURNING id, submission_file_path, attachment_file_path
   `;
   const { rows } = await pool.query(query, [id]);
   return rows[0] || null;

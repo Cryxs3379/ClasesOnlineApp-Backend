@@ -96,7 +96,7 @@ async function getAssignmentWithAccess(id, user) {
   return assignment;
 }
 
-async function createAssignment(user, { title, description, studentId, classId, dueDate }) {
+async function createAssignment(user, { title, description, studentId, classId, dueDate, file }) {
   if (!title || !title.trim()) {
     throw new AppError('El título es obligatorio', 400);
   }
@@ -111,6 +111,8 @@ async function createAssignment(user, { title, description, studentId, classId, 
     title: title.trim(),
     description: description ? description.trim() : null,
     dueDate: dueDate || null,
+    attachmentFilePath: file ? file.path : null,
+    attachmentOriginalFilename: file ? file.originalname : null,
   });
 
   return assignment;
@@ -124,7 +126,7 @@ async function getAssignmentById(id, user) {
   return getAssignmentWithAccess(id, user);
 }
 
-async function updateAssignment(id, user, { title, description, dueDate, status }) {
+async function updateAssignment(id, user, { title, description, dueDate, status, file }) {
   const assignment = await getAssignmentWithAccess(id, user);
 
   if (user.role === 'student') {
@@ -139,11 +141,17 @@ async function updateAssignment(id, user, { title, description, dueDate, status 
     throw new AppError('El estado debe ser pending, submitted, reviewed o cancelled', 400);
   }
 
+  if (file && assignment.attachment_file_path) {
+    deleteFileIfExists(assignment.attachment_file_path);
+  }
+
   const updatedAssignment = await assignmentRepository.update(id, {
     title: title !== undefined ? title.trim() : undefined,
     description: description !== undefined ? (description ? description.trim() : null) : undefined,
     dueDate: dueDate !== undefined ? dueDate : undefined,
     status,
+    attachmentFilePath: file ? file.path : undefined,
+    attachmentOriginalFilename: file ? file.originalname : undefined,
   });
 
   return updatedAssignment;
@@ -234,6 +242,7 @@ async function deleteAssignment(id, user) {
 
   const deleted = await assignmentRepository.deleteById(id);
   deleteFileIfExists(deleted.submission_file_path);
+  deleteFileIfExists(deleted.attachment_file_path);
 
   return deleted;
 }
@@ -248,6 +257,16 @@ async function getSubmissionFile(id, user) {
   return assignment;
 }
 
+async function getAttachmentFile(id, user) {
+  const assignment = await getAssignmentWithAccess(id, user);
+
+  if (!assignment.attachment_file_path) {
+    throw new AppError('Esta tarea no tiene archivo adjunto', 404);
+  }
+
+  return assignment;
+}
+
 module.exports = {
   createAssignment,
   getMyAssignments,
@@ -257,4 +276,5 @@ module.exports = {
   reviewAssignment,
   deleteAssignment,
   getSubmissionFile,
+  getAttachmentFile,
 };

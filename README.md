@@ -58,7 +58,8 @@ Routes → Controllers → Services → Repositories → PostgreSQL
 | POST | `/api/assignments/:id/submit` | student | Entregar tarea |
 | PATCH | `/api/assignments/:id/review` | teacher/admin | Revisar tarea |
 | DELETE | `/api/assignments/:id` | teacher/admin | Eliminar tarea |
-| GET | `/api/assignments/:id/submission-file` | teacher/student/admin | Descargar entrega |
+| GET | `/api/assignments/:id/submission-file` | teacher/student/admin | Descargar entrega del alumno |
+| GET | `/api/assignments/:id/attachment-file` | teacher/student/admin | Descargar material adjunto del profesor |
 
 ## Migración SQL — tabla `assignments`
 
@@ -83,6 +84,11 @@ ALTER TABLE assignments
   ADD COLUMN IF NOT EXISTS submission_original_filename VARCHAR(255),
   ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP,
   ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
+
+-- Archivo adjunto del profesor (material de la tarea)
+ALTER TABLE assignments
+  ADD COLUMN IF NOT EXISTS attachment_file_path TEXT,
+  ADD COLUMN IF NOT EXISTS attachment_original_filename VARCHAR(255);
 
 -- Asegurar estados válidos
 ALTER TABLE assignments
@@ -109,6 +115,8 @@ CREATE TABLE IF NOT EXISTS assignments (
     submission_text TEXT,
     submission_file_path TEXT,
     submission_original_filename VARCHAR(255),
+    attachment_file_path TEXT,
+    attachment_original_filename VARCHAR(255),
     submitted_at TIMESTAMP,
     reviewed_at TIMESTAMP,
     teacher_feedback TEXT,
@@ -403,6 +411,20 @@ curl.exe -X POST http://localhost:3001/api/assignments ^
 
 También puedes usar `class_id` en lugar de `student_id`.
 
+### 24b. Crear tarea con archivo adjunto (profesor)
+
+```bash
+curl.exe -X POST http://localhost:3001/api/assignments ^
+  -H "Authorization: Bearer TU_TOKEN_PROFESOR" ^
+  -F "title=Ejercicios tema 5" ^
+  -F "description=Completa los ejercicios del PDF" ^
+  -F "student_id=UUID_ALUMNO" ^
+  -F "due_date=2026-07-01T23:59:00.000Z" ^
+  -F "attachment=@C:\ruta\tema5.pdf"
+```
+
+Campo del adjunto del profesor: `attachment`. Campo de entrega del alumno: `file`.
+
 ### 25. Listar tareas
 
 ```bash
@@ -437,12 +459,20 @@ curl.exe -X PATCH http://localhost:3001/api/assignments/UUID_TAREA/review ^
   -d "{\"teacher_feedback\":\"Muy bien, solo revisa la sección 2\"}"
 ```
 
-### 29. Descargar archivo de entrega
+### 29. Descargar archivo de entrega del alumno
 
 ```bash
 curl.exe -L -X GET http://localhost:3001/api/assignments/UUID_TAREA/submission-file ^
   -H "Authorization: Bearer TU_TOKEN" ^
   -o entrega.pdf
+```
+
+### 29b. Descargar material adjunto del profesor
+
+```bash
+curl.exe -L -X GET http://localhost:3001/api/assignments/UUID_TAREA/attachment-file ^
+  -H "Authorization: Bearer TU_TOKEN" ^
+  -o material.pdf
 ```
 
 ### 30. Eliminar tarea (profesor)
@@ -470,5 +500,7 @@ curl.exe -X DELETE http://localhost:3001/api/assignments/UUID_TAREA ^
 - Cada usuario solo puede ver y gestionar sus propias notificaciones.
 - Las tareas las crea el profesor para sus alumnos o clases.
 - El alumno entrega con texto y/o archivo; las entregas se guardan en `uploads/assignments`.
+- El profesor puede adjuntar material opcional al crear o editar tarea; se guarda en `uploads/assignments/attachments`.
+- `attachment_file_path` = material del profesor. `submission_file_path` = entrega del alumno.
 - Al crear, entregar o revisar una tarea se genera notificación automática por Socket.IO.
 - Estados de tarea: `pending`, `submitted`, `reviewed`, `cancelled`.

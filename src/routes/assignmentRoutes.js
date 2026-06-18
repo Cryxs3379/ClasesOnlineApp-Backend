@@ -4,6 +4,7 @@ const assignmentController = require('../controllers/assignmentController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/roleMiddleware');
 const { handleAssignmentUpload } = require('../middlewares/assignmentUploadMiddleware');
+const { optionalAttachmentUpload } = require('../middlewares/assignmentAttachmentUploadMiddleware');
 
 const router = express.Router();
 
@@ -91,6 +92,7 @@ router.use(authMiddleware);
 router.post(
   '/',
   requireRole('teacher', 'admin'),
+  optionalAttachmentUpload,
   createValidation,
   assignmentController.createAssignment
 );
@@ -106,6 +108,13 @@ router.get(
   assignmentIdParam,
   requireRole('teacher', 'student', 'admin'),
   assignmentController.downloadSubmissionFile
+);
+
+router.get(
+  '/:id/attachment-file',
+  assignmentIdParam,
+  requireRole('teacher', 'student', 'admin'),
+  assignmentController.downloadAttachmentFile
 );
 
 router.post(
@@ -136,6 +145,7 @@ router.patch(
   '/:id',
   assignmentIdParam,
   requireRole('teacher', 'admin'),
+  optionalAttachmentUpload,
   updateValidation,
   assignmentController.updateAssignment
 );
