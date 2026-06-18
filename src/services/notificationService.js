@@ -165,6 +165,53 @@ async function notifyClassCancelled(io, classData) {
   });
 }
 
+async function notifyNewAssignment(io, assignment) {
+  if (!assignment?.student_id) {
+    return null;
+  }
+
+  return notifyUserSafely(io, {
+    userId: assignment.student_id,
+    title: 'Nueva tarea',
+    message: `Nueva tarea disponible: ${assignment.title}`,
+    type: 'assignment',
+    relatedEntityType: 'assignment',
+    relatedEntityId: assignment.id,
+  });
+}
+
+async function notifyAssignmentSubmitted(io, assignment) {
+  if (!assignment?.teacher_id) {
+    return null;
+  }
+
+  const studentName = assignment.student_name || 'Un alumno';
+
+  return notifyUserSafely(io, {
+    userId: assignment.teacher_id,
+    title: 'Tarea entregada',
+    message: `${studentName} ha entregado: ${assignment.title}`,
+    type: 'assignment',
+    relatedEntityType: 'assignment',
+    relatedEntityId: assignment.id,
+  });
+}
+
+async function notifyAssignmentReviewed(io, assignment) {
+  if (!assignment?.student_id) {
+    return null;
+  }
+
+  return notifyUserSafely(io, {
+    userId: assignment.student_id,
+    title: 'Tarea revisada',
+    message: `Tu tarea ha sido revisada: ${assignment.title}`,
+    type: 'assignment',
+    relatedEntityType: 'assignment',
+    relatedEntityId: assignment.id,
+  });
+}
+
 module.exports = {
   getMyNotifications,
   getUnreadCount,
@@ -179,4 +226,7 @@ module.exports = {
   notifyNewDocument,
   notifyNewClass,
   notifyClassCancelled,
+  notifyNewAssignment,
+  notifyAssignmentSubmitted,
+  notifyAssignmentReviewed,
 };

@@ -51,6 +51,72 @@ Routes → Controllers → Services → Repositories → PostgreSQL
 | PATCH | `/api/notifications/:id/read` | teacher/student/admin | Marcar notificación como leída |
 | PATCH | `/api/notifications/read-all` | teacher/student/admin | Marcar todas como leídas |
 | DELETE | `/api/notifications/:id` | teacher/student/admin | Eliminar notificación |
+| POST | `/api/assignments` | teacher/admin | Crear tarea |
+| GET | `/api/assignments` | teacher/student/admin | Listar tareas |
+| GET | `/api/assignments/:id` | teacher/student/admin | Detalle de tarea |
+| PATCH | `/api/assignments/:id` | teacher/admin | Actualizar tarea |
+| POST | `/api/assignments/:id/submit` | student | Entregar tarea |
+| PATCH | `/api/assignments/:id/review` | teacher/admin | Revisar tarea |
+| DELETE | `/api/assignments/:id` | teacher/admin | Eliminar tarea |
+| GET | `/api/assignments/:id/submission-file` | teacher/student/admin | Descargar entrega |
+
+## Migración SQL — tabla `assignments`
+
+Si tu tabla viene del esquema antiguo (`student_response`, sin archivos de entrega), ejecuta en PostgreSQL:
+
+```sql
+-- Renombrar columna antigua si existe
+ALTER TABLE assignments
+  RENAME COLUMN student_response TO submission_text;
+
+-- Permitir crear tarea solo con class_id (el alumno se resuelve desde la clase)
+ALTER TABLE assignments
+  ALTER COLUMN student_id DROP NOT NULL;
+
+-- Ampliar título si hace falta
+ALTER TABLE assignments
+  ALTER COLUMN title TYPE VARCHAR(255);
+
+-- Columnas nuevas para entregas y revisión
+ALTER TABLE assignments
+  ADD COLUMN IF NOT EXISTS submission_file_path TEXT,
+  ADD COLUMN IF NOT EXISTS submission_original_filename VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
+
+-- Asegurar estados válidos
+ALTER TABLE assignments
+  DROP CONSTRAINT IF EXISTS assignments_status_check;
+
+ALTER TABLE assignments
+  ADD CONSTRAINT assignments_status_check
+  CHECK (status IN ('pending', 'submitted', 'reviewed', 'cancelled'));
+```
+
+Si la tabla no existe aún, créala completa:
+
+```sql
+CREATE TABLE IF NOT EXISTS assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    class_id UUID REFERENCES classes(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    due_date TIMESTAMP,
+    status VARCHAR(50) DEFAULT 'pending'
+        CHECK (status IN ('pending', 'submitted', 'reviewed', 'cancelled')),
+    submission_text TEXT,
+    submission_file_path TEXT,
+    submission_original_filename VARCHAR(255),
+    submitted_at TIMESTAMP,
+    reviewed_at TIMESTAMP,
+    teacher_feedback TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    CHECK (student_id IS NOT NULL OR class_id IS NOT NULL)
+);
+```
 
 ## Socket.IO — Mensajería en tiempo real
 
@@ -326,6 +392,66 @@ curl.exe -X DELETE http://localhost:3001/api/notifications/UUID_NOTIFICACION ^
   -H "Authorization: Bearer TU_TOKEN"
 ```
 
+### 24. Crear tarea (profesor)
+
+```bash
+curl.exe -X POST http://localhost:3001/api/assignments ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer TU_TOKEN_PROFESOR" ^
+  -d "{\"title\":\"Ejercicios de vocabulario\",\"description\":\"Completa la hoja 3\",\"student_id\":\"UUID_DEL_ALUMNO\",\"due_date\":\"2026-07-01T23:59:00.000Z\"}"
+```
+
+También puedes usar `class_id` en lugar de `student_id`.
+
+### 25. Listar tareas
+
+```bash
+curl.exe -X GET http://localhost:3001/api/assignments ^
+  -H "Authorization: Bearer TU_TOKEN"
+```
+
+### 26. Entregar tarea con texto (alumno)
+
+```bash
+curl.exe -X POST http://localhost:3001/api/assignments/UUID_TAREA/submit ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer TU_TOKEN_ALUMNO" ^
+  -d "{\"submission_text\":\"Aquí está mi respuesta\"}"
+```
+
+### 27. Entregar tarea con archivo (alumno)
+
+```bash
+curl.exe -X POST http://localhost:3001/api/assignments/UUID_TAREA/submit ^
+  -H "Authorization: Bearer TU_TOKEN_ALUMNO" ^
+  -F "submission_text=Adjunto el ejercicio resuelto" ^
+  -F "file=@C:\ruta\entrega.pdf"
+```
+
+### 28. Revisar tarea (profesor)
+
+```bash
+curl.exe -X PATCH http://localhost:3001/api/assignments/UUID_TAREA/review ^
+  -H "Content-Type: application/json" ^
+  -H "Authorization: Bearer TU_TOKEN_PROFESOR" ^
+  -d "{\"teacher_feedback\":\"Muy bien, solo revisa la sección 2\"}"
+```
+
+### 29. Descargar archivo de entrega
+
+```bash
+curl.exe -L -X GET http://localhost:3001/api/assignments/UUID_TAREA/submission-file ^
+  -H "Authorization: Bearer TU_TOKEN" ^
+  -o entrega.pdf
+```
+
+### 30. Eliminar tarea (profesor)
+
+```bash
+curl.exe -X DELETE http://localhost:3001/api/assignments/UUID_TAREA ^
+  -H "Authorization: Bearer TU_TOKEN_PROFESOR"
+```
+
 ## Reglas de negocio
 
 - Los alumnos **no** se registran solos; los crea el profesor.
@@ -342,3 +468,7 @@ curl.exe -X DELETE http://localhost:3001/api/notifications/UUID_NOTIFICACION ^
 - Las notificaciones se guardan en PostgreSQL y se emiten en tiempo real por Socket.IO.
 - Se generan automáticamente al recibir mensajes, subir documentos, crear clases o cancelar clases.
 - Cada usuario solo puede ver y gestionar sus propias notificaciones.
+- Las tareas las crea el profesor para sus alumnos o clases.
+- El alumno entrega con texto y/o archivo; las entregas se guardan en `uploads/assignments`.
+- Al crear, entregar o revisar una tarea se genera notificación automática por Socket.IO.
+- Estados de tarea: `pending`, `submitted`, `reviewed`, `cancelled`.

@@ -5,6 +5,10 @@ function getUploadPath() {
   return path.join(process.cwd(), 'uploads', 'documents');
 }
 
+function getAssignmentUploadPath() {
+  return path.join(process.cwd(), 'uploads', 'assignments');
+}
+
 function ensureDirectoryExists(dirPath) {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -23,6 +27,7 @@ function deleteFileIfExists(filePath) {
 
 module.exports = {
   getUploadPath,
+  getAssignmentUploadPath,
   ensureDirectoryExists,
   deleteFileIfExists,
 };

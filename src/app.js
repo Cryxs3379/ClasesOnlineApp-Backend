@@ -9,6 +9,7 @@ const classRoutes = require('./routes/classRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const assignmentRoutes = require('./routes/assignmentRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const { notFound, errorHandler } = require('./middlewares/errorMiddleware');
 
@@ -32,6 +33,7 @@ app.use('/api/classes', classRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/assignments', assignmentRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
