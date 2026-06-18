@@ -7,11 +7,96 @@ const notificationService = require('../services/notificationService');
 
 let io;
 
+const whiteboardState = new Map();
+const MAX_WHITEBOARD_STROKES = 5000;
+
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function isValidUuid(value) {
   return typeof value === 'string' && UUID_REGEX.test(value);
+}
+
+function getWhiteboardRoom(classId) {
+  return `whiteboard:${classId}`;
+}
+
+function isValidWhiteboardPoint(point) {
+  return (
+    point &&
+    typeof point.x === 'number' &&
+    typeof point.y === 'number' &&
+    point.x >= 0 &&
+    point.x <= 1 &&
+    point.y >= 0 &&
+    point.y <= 1
+  );
+}
+
+function sanitizeWhiteboardStroke(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const classId = String(payload.classId || '').trim();
+
+  if (!isValidUuid(classId)) {
+    return null;
+  }
+
+  if (!isValidWhiteboardPoint(payload.from) || !isValidWhiteboardPoint(payload.to)) {
+    return null;
+  }
+
+  const tool = payload.tool === 'eraser' ? 'eraser' : 'pen';
+
+  const rawWidth = Number(payload.width);
+  const safeWidth = Number.isFinite(rawWidth)
+    ? Math.min(30, Math.max(1, rawWidth))
+    : 4;
+
+  const color =
+    typeof payload.color === 'string' && payload.color.length <= 32
+      ? payload.color
+      : '#111827';
+
+  const id =
+    typeof payload.id === 'string' && payload.id.length <= 120
+      ? payload.id
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  return {
+    id,
+    classId,
+    tool,
+    color,
+    width: safeWidth,
+    from: {
+      x: payload.from.x,
+      y: payload.from.y,
+    },
+    to: {
+      x: payload.to.x,
+      y: payload.to.y,
+    },
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function getWhiteboardState(classId) {
+  return whiteboardState.get(classId) || { strokes: [] };
+}
+
+function addWhiteboardStroke(stroke) {
+  const current = whiteboardState.get(stroke.classId) || { strokes: [] };
+
+  current.strokes.push(stroke);
+
+  if (current.strokes.length > MAX_WHITEBOARD_STROKES) {
+    current.strokes = current.strokes.slice(-MAX_WHITEBOARD_STROKES);
+  }
+
+  whiteboardState.set(stroke.classId, current);
+
+  return current;
 }
 
 function emitConversationUpdates(socket, teacherConversation, studentConversation) {
@@ -165,6 +250,137 @@ function initializeSocket(server) {
         socket.emit('message:error', { message: error.message });
       }
     });
+
+    socket.on('whiteboard:join', (payload) => {
+      try {
+        if (!socket.user?.id) {
+          socket.emit('whiteboard:error', { message: 'Usuario no autenticado.' });
+          return;
+        }
+
+        const classId = payload?.classId;
+
+        if (!isValidUuid(classId)) {
+          socket.emit('whiteboard:error', {
+            message: 'classId debe ser un UUID válido.',
+          });
+          return;
+        }
+
+        // TODO: validar que el usuario pertenece a la clase antes de permitir acceso a la pizarra.
+
+        socket.join(getWhiteboardRoom(classId));
+
+        const state = getWhiteboardState(classId);
+
+        socket.emit('whiteboard:state', {
+          classId,
+          strokes: state.strokes,
+        });
+      } catch (error) {
+        socket.emit('whiteboard:error', { message: error.message });
+      }
+    });
+
+    socket.on('whiteboard:leave', (payload) => {
+      try {
+        const classId = payload?.classId;
+
+        if (!isValidUuid(classId)) {
+          socket.emit('whiteboard:error', {
+            message: 'classId debe ser un UUID válido.',
+          });
+          return;
+        }
+
+        socket.leave(getWhiteboardRoom(classId));
+      } catch (error) {
+        socket.emit('whiteboard:error', { message: error.message });
+      }
+    });
+
+    socket.on('whiteboard:state:request', (payload) => {
+      try {
+        if (!socket.user?.id) {
+          socket.emit('whiteboard:error', { message: 'Usuario no autenticado.' });
+          return;
+        }
+
+        const classId = payload?.classId;
+
+        if (!isValidUuid(classId)) {
+          socket.emit('whiteboard:error', {
+            message: 'classId debe ser un UUID válido.',
+          });
+          return;
+        }
+
+        const state = getWhiteboardState(classId);
+
+        socket.emit('whiteboard:state', {
+          classId,
+          strokes: state.strokes,
+        });
+      } catch (error) {
+        socket.emit('whiteboard:error', { message: error.message });
+      }
+    });
+
+    socket.on('whiteboard:draw', (payload) => {
+      try {
+        if (!socket.user?.id) {
+          socket.emit('whiteboard:error', { message: 'Usuario no autenticado.' });
+          return;
+        }
+
+        const stroke = sanitizeWhiteboardStroke(payload);
+
+        if (!stroke) {
+          socket.emit('whiteboard:error', {
+            message: 'Trazo de pizarra no válido.',
+          });
+          return;
+        }
+
+        // TODO: validar que el usuario pertenece a la clase.
+        // TODO futuro: permitir dibujar solo a profesores/admin.
+
+        addWhiteboardStroke(stroke);
+
+        socket.to(getWhiteboardRoom(stroke.classId)).emit('whiteboard:draw', stroke);
+      } catch (error) {
+        socket.emit('whiteboard:error', { message: error.message });
+      }
+    });
+
+    socket.on('whiteboard:clear', (payload) => {
+      try {
+        if (!socket.user?.id) {
+          socket.emit('whiteboard:error', { message: 'Usuario no autenticado.' });
+          return;
+        }
+
+        const classId = payload?.classId;
+
+        if (!isValidUuid(classId)) {
+          socket.emit('whiteboard:error', {
+            message: 'classId debe ser un UUID válido.',
+          });
+          return;
+        }
+
+        // TODO: validar que el usuario pertenece a la clase.
+        // TODO futuro: permitir limpiar solo a profesores/admin.
+
+        whiteboardState.set(classId, { strokes: [] });
+
+        io.to(getWhiteboardRoom(classId)).emit('whiteboard:clear', {
+          classId,
+        });
+      } catch (error) {
+        socket.emit('whiteboard:error', { message: error.message });
+      }
+    });
   });
 
   return io;
@@ -177,6 +393,17 @@ function getIO() {
 // Eventos de notificaciones emitidos desde notificationService:
 // - notification:new       → { notification }
 // - notifications:updated  → { unread_count }
+//
+// Eventos de pizarra:
+// - whiteboard:join           cliente → servidor { classId }
+// - whiteboard:leave          cliente → servidor { classId }
+// - whiteboard:state:request  cliente → servidor { classId }
+// - whiteboard:draw           cliente → servidor { classId, tool, color, width, from, to }
+// - whiteboard:clear          cliente → servidor { classId }
+// - whiteboard:state          servidor → cliente { classId, strokes }
+// - whiteboard:draw           servidor → cliente stroke
+// - whiteboard:clear          servidor → cliente { classId }
+// - whiteboard:error          servidor → cliente { message }
 
 module.exports = {
   initializeSocket,
